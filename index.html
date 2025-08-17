@@ -63,19 +63,13 @@
     </div>
 
     <div class="card">
-      <small class="muted">Для микрофона нужен HTTPS (на Pages он есть) или localhost.</small>
+      <small class="muted">Для микрофона нужен HTTPS (на GitHub Pages уже есть) или localhost.</small>
     </div>
   </div>
 
-  <!-- WebRTC adapter -->
+  <!-- WebRTC adapter (полезен для кроссбраузерной совместимости) -->
   <script defer src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-
-  <!-- P2PT (с фолбэком) -->
-  <script defer id="p2pt-cdn" src="https://unpkg.com/p2pt/dist/p2pt.min.js"
-          onerror="var s=document.createElement('script');s.defer=true;s.src='https://cdn.jsdelivr.net/npm/p2pt/dist/p2pt.min.js';s.onerror=function(){var s2=document.createElement('script');s2.defer=true;s2.src='https://cdnjs.cloudflare.com/ajax/libs/p2pt/1.0.7/p2pt.min.js';document.head.appendChild(s2)};document.head.appendChild(s);">
-  </script>
-
-  <!-- Ваш код -->
+  <!-- Ваш код: он сам подтянет P2PT из CDN с фолбэками -->
   <script defer src="./script.js"></script>
 </body>
 </html>
