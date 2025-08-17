@@ -1,52 +1,45 @@
-// Статус на странице
-const statusEl = (() => {
-  const el = document.getElementById('status') || document.createElement('div');
-  el.style.marginTop = '6px';
-  el.style.color = '#9bb0c6';
-  if (!el.parentElement) document.body.prepend(el);
-  return el;
-})();
+// ===== UI статус =====
+const statusEl = document.getElementById('status');
 const setStatus = (m) => { console.log('[STATUS]', m); statusEl.textContent = m; };
 
-// Элементы DOM
-const roomInput = document.getElementById('room');
-const nickInput = document.getElementById('nick');
-const joinBtn = document.getElementById('joinBtn');
-const leaveBtn = document.getElementById('leaveBtn');
-const chatBox = document.getElementById('chat');
-const msgInput = document.getElementById('msg');
-const sendBtn = document.getElementById('sendBtn');
-const usersList = document.getElementById('users');
-const pttBtn = document.getElementById('pttBtn');
+// ===== DOM =====
+const roomInput   = document.getElementById('room');
+const nickInput   = document.getElementById('nick');
+const joinBtn     = document.getElementById('joinBtn');
+const leaveBtn    = document.getElementById('leaveBtn');
+const chatBox     = document.getElementById('chat');
+const msgInput    = document.getElementById('msg');
+const sendBtn     = document.getElementById('sendBtn');
+const usersList   = document.getElementById('users');
+const pttBtn      = document.getElementById('pttBtn');
 const vadCheckbox = document.getElementById('vad');
-const voicePanel = document.getElementById('voicePanel');
+const voicePanel  = document.getElementById('voicePanel');
 
-// Глобальные переменные
-let localStream;
-let micActive = false;
-let vadRunning = false;
-let vadCtx, vadSrc, vadAnalyser, vadRAF;
+// ===== Состояние =====
 let roomCode = '';
 let nickname = '';
 let secretKey = null;
+
 let haveMic = false;
 let audioOn = false;
-let localStream = null;
-let monitorStream = null;
+let localStream = null;   // для отправки
+let monitorStream = null; // клон трека для VAD
 let p2pt = null;
+
+// peers: id -> { peer, nick, audioEl }
 const peers = new Map();
 
-// VAD переменные
-let vadRunning = false, vadCtx = null, vadAnalyser = null, vadSrc = null, vadRAF = null;
+// ===== VAD =====
+let vadRunning = false, vadCtx=null, vadAnalyser=null, vadSrc=null, vadRAF=null;
 
-// UI helpers
-function addChat(line) {
+// ===== UI helpers =====
+function addChat(line){
   const p = document.createElement('p');
   p.textContent = line;
   chatBox.appendChild(p);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
-function redrawUsers() {
+function redrawUsers(){
   usersList.innerHTML = '';
   [...peers.values()].forEach(({ nick }) => {
     const li = document.createElement('li');
@@ -55,16 +48,13 @@ function redrawUsers() {
   });
 }
 
-// Шифрование AES‑GCM из кода комнаты
+// ===== AES-GCM (ключ из Room Code) =====
 async function deriveKey(code) {
   const enc = new TextEncoder();
   const material = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: enc.encode('dedsec'), iterations: 100_000, hash: 'SHA-256' },
-    material,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt','decrypt']
+    { name:'PBKDF2', salt: enc.encode('dedsec'), iterations: 100_000, hash:'SHA-256' },
+    material, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
   );
 }
 async function encryptMessage(plain) {
@@ -77,10 +67,10 @@ async function decryptMessage(iv, data) {
   return new TextDecoder().decode(buf);
 }
 
-// Запрос микрофона
-async function tryGetMic() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('Нет mediaDevices.getUserMedia — только приём.');
+// ===== Микрофон =====
+async function tryGetMic(){
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('Нет getUserMedia — только приём.');
     haveMic = false; return;
   }
   try {
@@ -88,122 +78,124 @@ async function tryGetMic() {
       audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
     });
     haveMic = true;
-    // отключаем отправку по умолчанию
+
+    // старт — молча; включаем только PTT/VAD
     const sendTrack = localStream.getAudioTracks()[0];
     sendTrack.enabled = false;
+
     // клон для VAD
-    const monitorTrack = sendTrack.clone();
-    monitorTrack.enabled = true;
-    monitorStream = new MediaStream([monitorTrack]);
+    const mon = sendTrack.clone(); mon.enabled = true;
+    monitorStream = new MediaStream([mon]);
+
     setStatus('Микрофон доступен. Используйте PTT или VAD.');
   } catch (e) {
-    console.warn('Микрофон недоступен:', e);
+    console.warn('mic fail', e);
     haveMic = false;
-    setStatus('Работаем без микрофона (receive‑only).');
+    setStatus('Без микрофона (receive-only). Разрешите доступ.');
   }
 }
 
-// PTT / VAD
-function setMicState(on) {
+function setMicState(on){
   if (!haveMic || !localStream) return;
   localStream.getAudioTracks().forEach(t => t.enabled = !!on);
   audioOn = !!on;
 }
+
+// PTT (кнопка и Space)
 pttBtn.addEventListener('mousedown', ()=>setMicState(true));
 pttBtn.addEventListener('mouseup',   ()=>setMicState(false));
-document.addEventListener('keydown', (e)=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(true);} });
-document.addEventListener('keyup',   (e)=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(false);} });
+document.addEventListener('keydown', e=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(true);} });
+document.addEventListener('keyup',   e=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(false);} });
 
-const pttBtn = document.getElementById("pttBtn");
-pttBtn.addEventListener("mousedown", startMic);
-pttBtn.addEventListener("mouseup", stopMic);
-pttBtn.addEventListener("touchstart", startMic);
-pttBtn.addEventListener("touchend", stopMic);
-
-function startMic() {
-  if (localStream) {
-    localStream.getAudioTracks().forEach(track => track.enabled = true);
-    document.getElementById("status").textContent = "🎙️ Микрофон включен (PTT)";
-  }
-}
-function stopMic() {
-  if (localStream) {
-    localStream.getAudioTracks().forEach(track => track.enabled = false);
-    document.getElementById("status").textContent = "Микрофон выключен";
-  }
-}
-
-function startVAD() {
-  if (!haveMic || !monitorStream) { vadCheckbox.checked=false; return; }
+// VAD
+function startVAD(){
+  if (!haveMic || !monitorStream){ vadCheckbox.checked=false; return; }
   if (vadRunning) return;
-  vadCtx = new (window.AudioContext || window.webkitAudioContext)();
+  vadCtx = new (window.AudioContext||window.webkitAudioContext)();
   vadSrc = vadCtx.createMediaStreamSource(monitorStream);
   vadAnalyser = vadCtx.createAnalyser();
-  vadAnalyser.fftSize = 1024;
-  vadSrc.connect(vadAnalyser);
+  vadAnalyser.fftSize = 1024; vadSrc.connect(vadAnalyser);
+
   const buf = new Float32Array(vadAnalyser.fftSize);
   let noise=0.006, armed=false, speaking=false;
   let aboveT=0, belowT=0;
   const attackMs=90, releaseMs=380;
   const onThr = ()=> noise*2.4, offThr = ()=> noise*1.6;
+
   const loop = ()=>{
     vadAnalyser.getFloatTimeDomainData(buf);
-    let rms=0; for (let i=0; i<buf.length; i++) rms+=buf[i]*buf[i];
-    rms = Math.sqrt(rms/buf.length);
-    if (!armed){ noise = Math.max(0.004, rms*1.4); armed=true; }
-    const now = performance.now();
-    if (!speaking) {
-      if (rms>onThr()) { if(!aboveT) aboveT=now; if(now-aboveT>attackMs){ speaking=true; setMicState(true);} }
+    let rms=0; for (let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/buf.length);
+    if (!armed){ noise=Math.max(0.004, rms*1.4); armed=true; }
+    const now=performance.now();
+    if (!speaking){
+      if (rms>onThr()){ if(!aboveT) aboveT=now; if(now-aboveT>attackMs){ speaking=true; setMicState(true);} }
       else aboveT=0;
     } else {
-      if (rms<offThr()) { if(!belowT) belowT=now; if(now-belowT>releaseMs){ speaking=false; if (!audioOn) setMicState(false);} }
+      if (rms<offThr()){ if(!belowT) belowT=now; if(now-belowT>releaseMs){ speaking=false; if(!audioOn) setMicState(false);} }
       else belowT=0;
     }
-    vadRAF = requestAnimationFrame(loop);
+    vadRAF=requestAnimationFrame(loop);
   };
+
   vadRunning=true;
-  vadRAF = requestAnimationFrame(loop);
+  vadRAF=requestAnimationFrame(loop);
 }
-function stopVAD() {
+function stopVAD(){
   if (!vadRunning) return;
   vadRunning=false;
-  if (vadRAF) cancelAnimationFrame(vadRAF);
-  vadRAF=null;
+  if (vadRAF) cancelAnimationFrame(vadRAF); vadRAF=null;
   try{ vadCtx && vadCtx.close(); }catch{}
   vadCtx=vadAnalyser=vadSrc=null;
   if (!audioOn) setMicState(false);
 }
 vadCheckbox.addEventListener('change', ()=> vadCheckbox.checked ? startVAD() : stopVAD());
 
-// P2P discovery/signaling через трекеры
+// ===== P2P discovery (P2PT) =====
 const TRACKERS = [
   'wss://tracker.openwebtorrent.com',
   'wss://tracker.webtorrent.dev',
-  'wss://tracker.fastcast.nz',
+  'wss://tracker.fastcast.nz'
 ];
-function topicFromRoom(code) {
+function topicFromRoom(code){
   const text = 'dedsec:' + code.toLowerCase().trim();
   return new TextEncoder().encode(text);
 }
 
-function startP2P() {
-  if (p2pt) { try{ p2pt.destroy?.(); }catch{} p2pt = null; }
+function startP2P(){
+  if (p2pt) { try{ p2pt.destroy?.(); }catch{} p2pt=null; }
   const topic = topicFromRoom(roomCode);
   p2pt = new P2PT(TRACKERS, topic);
+
+  // Добавим STUN (и сюда же позже можно вставить TURN)
+  p2pt.setRTCConfiguration({
+    iceServers: [{ urls:'stun:stun.l.google.com:19302' }]
+  });
+
   p2pt.on('peerconnect', (peer) => {
     console.log('[p2p] connect', peer.id);
-    peers.set(peer.id, { peer, nick: '(unknown)', audioEl: null });
+    peers.set(peer.id, { peer, nick:'(unknown)', audioEl:null });
     redrawUsers();
+
+    // публикуем наш аудиотрек
     if (haveMic && localStream) {
       localStream.getAudioTracks().forEach(t => peer.addTrack(t, localStream));
     }
+
+    // входящий звук
     peer.on('track', (track, stream) => {
       const audio = document.createElement('audio');
       audio.autoplay = true; audio.playsInline = true; audio.srcObject = stream;
-      audio.play().catch(()=>{ const unlock=()=>{ audio.play().catch(()=>{}); document.removeEventListener('click', unlock); document.removeEventListener('keydown', unlock); }; document.addEventListener('click', unlock); document.addEventListener('keydown', unlock); });
-      const entry = peers.get(peer.id); if (entry) entry.audioEl = audio;
+      audio.play().catch(()=>{ // разблокировка автоплея по клику
+        const unlock = () => { audio.play().catch(()=>{}); document.removeEventListener('click', unlock); document.removeEventListener('keydown', unlock); };
+        document.addEventListener('click', unlock);
+        document.addEventListener('keydown', unlock);
+      });
+      const e = peers.get(peer.id); if (e) e.audioEl = audio;
       document.body.appendChild(audio);
     });
+
+    // DataChannel: ник и чат
     peer.on('data', async (buf) => {
       try {
         const msg = JSON.parse(new TextDecoder().decode(buf));
@@ -215,76 +207,72 @@ function startP2P() {
         }
       } catch {}
     });
+
     peer.on('close', () => {
-      console.log('[p2p] close', peer.id);
       const e = peers.get(peer.id);
-      if (e?.audioEl) { try { e.audioEl.remove(); } catch {} }
-      peers.delete(peer.id);
-      redrawUsers();
+      if (e?.audioEl) try{ e.audioEl.remove(); }catch{}
+      peers.delete(peer.id); redrawUsers();
     });
-    peer.on('error', (err) => console.warn('[p2p] error', peer.id, err));
-    // отправляем привет
-    try { peer.send(JSON.stringify({ type:'hello', nick: nickname })); } catch {}
+    peer.on('error', err => console.warn('[p2p] error', err));
+
+    // представляемся
+    try { peer.send(JSON.stringify({ type:'hello', nick:nickname })); } catch {}
   });
+
   p2pt.on('peerclose', (peer) => {
-    console.log('[p2p] peerclose', peer.id);
     const e = peers.get(peer.id);
-    if (e?.audioEl) { try { e.audioEl.remove(); } catch {} }
-    peers.delete(peer.id);
-    redrawUsers();
+    if (e?.audioEl) try{ e.audioEl.remove(); }catch{}
+    peers.delete(peer.id); redrawUsers();
   });
+
   p2pt.start();
   setStatus('P2P discovery запущен.');
 }
 
-// отправка сообщения
-async function sendChatToAll(text) {
+// ===== Чат =====
+async function sendChatToAll(text){
   const payload = await encryptMessage(text);
   const data = new TextEncoder().encode(JSON.stringify({ type:'chat', ...payload }));
-  for (const { peer } of peers.values()) {
+  for (const { peer } of peers.values()){
     try { peer.send(data); } catch (e) { console.warn('send fail', e); }
   }
 }
 
-// обработчики кнопок
-joinBtn.addEventListener('click', async () => {
+// ===== Join / Leave =====
+joinBtn.addEventListener('click', async ()=>{
   roomCode = (roomInput.value||'').trim();
   nickname = (nickInput.value||'').trim() || 'user';
-  if (!roomCode) { setStatus('Введите Room Code'); return; }
+  if (!roomCode){ setStatus('Введите Room Code'); return; }
+
   secretKey = await deriveKey(roomCode);
   setStatus('Проверяю микрофон…');
   await tryGetMic();
+
   startP2P();
   voicePanel.classList.remove('hidden');
   addChat(`You joined room ${roomCode} as ${nickname}`);
 });
-leaveBtn.addEventListener('click', () => {
-  stopVAD();
-  setMicState(false);
+
+leaveBtn.addEventListener('click', ()=>{
+  stopVAD(); setMicState(false);
   for (const { peer, audioEl } of peers.values()) {
     try { peer.destroy(); } catch {}
-    if (audioEl) try { audioEl.remove(); } catch {}
+    if (audioEl) try{ audioEl.remove(); }catch{}
   }
-  peers.clear();
-  redrawUsers();
-  if (p2pt) { try{ p2pt.destroy?.(); }catch{} p2pt = null; }
+  peers.clear(); redrawUsers();
+  if (p2pt) { try{ p2pt.destroy?.(); }catch{} p2pt=null; }
   setStatus('Отключено.');
   voicePanel.classList.add('hidden');
 });
-sendBtn.addEventListener('click', async () => {
+
+sendBtn.addEventListener('click', async ()=>{
   const text = (msgInput.value||'').trim();
   if (!text) return;
-  try {
-    await sendChatToAll(text);
-    addChat(`Me: ${text}`);
-    msgInput.value='';
-  } catch (e) {
-    console.error(e);
-    setStatus('Не удалось отправить сообщение.');
-  }
+  try { await sendChatToAll(text); addChat(`Me: ${text}`); msgInput.value=''; }
+  catch(e){ console.error(e); setStatus('Не удалось отправить сообщение.'); }
 });
 
-// предупреждение о HTTPS
+// HTTPS подсказка
 if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
   console.warn('getUserMedia доступен только в HTTPS или на localhost');
 }
