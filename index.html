@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DedSec P2P Voice (no-server)</title>
+  <title>S!ndy</title>
   <style>
     :root { color-scheme: dark; }
     body{margin:0;background:#0b0f14;color:#e6eef5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -32,6 +32,13 @@
           <label>Nickname</label><br />
           <input id="nick" placeholder="wrench" />
         </div>
+        <div>
+  <button id="pttBtn">🎙️ Push-to-Talk</button>
+  <label>
+    <input type="checkbox" id="vadCheckbox"> Voice Detection (VAD)
+  </label>
+</div>
+<p id="status">Микрофон не активен</p>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="joinBtn" type="button">Join</button>
