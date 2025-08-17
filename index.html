@@ -37,10 +37,9 @@
         <button id="joinBtn" type="button">Join</button>
         <button id="leaveBtn" type="button">Leave</button>
       </div>
-      <div id="status" style="margin-top:6px;color:#9bb0c6"></div>
+      <div id="status" style="margin-top:6px;color:#9bb0c6">Готово</div>
     </div>
 
-    <!-- ВОТ ЭТА ПАНЕЛЬ НУЖНА ДЛЯ ЗВУКА -->
     <div class="card hidden" id="voicePanel">
       <div class="row">
         <button id="pttBtn" type="button">🎙️ Push-to-Talk (Space)</button>
@@ -64,15 +63,19 @@
     </div>
 
     <div class="card">
-      <small class="muted">Для микрофона нужен HTTPS (на Pages уже есть) или localhost.</small>
+      <small class="muted">Для микрофона нужен HTTPS (на Pages он есть) или localhost.</small>
     </div>
   </div>
 
   <!-- WebRTC adapter -->
-  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-  <!-- P2PT (внутри SimplePeer) -->
-  <script src="https://unpkg.com/p2pt/dist/p2pt.min.js"></script>
+  <script defer src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+
+  <!-- P2PT (с фолбэком) -->
+  <script defer id="p2pt-cdn" src="https://unpkg.com/p2pt/dist/p2pt.min.js"
+          onerror="var s=document.createElement('script');s.defer=true;s.src='https://cdn.jsdelivr.net/npm/p2pt/dist/p2pt.min.js';s.onerror=function(){var s2=document.createElement('script');s2.defer=true;s2.src='https://cdnjs.cloudflare.com/ajax/libs/p2pt/1.0.7/p2pt.min.js';document.head.appendChild(s2)};document.head.appendChild(s);">
+  </script>
+
   <!-- Ваш код -->
-  <script src="./script.js"></script>
+  <script defer src="./script.js"></script>
 </body>
 </html>
