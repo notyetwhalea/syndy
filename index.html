@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>S!ndy</title>
+  <title>DedSec P2P Voice (no-server)</title>
   <style>
     :root { color-scheme: dark; }
     body{margin:0;background:#0b0f14;color:#e6eef5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -32,13 +32,6 @@
           <label>Nickname</label><br />
           <input id="nick" placeholder="wrench" />
         </div>
-        <div>
-  <button id="pttBtn">🎙️ Push-to-Talk</button>
-  <label>
-    <input type="checkbox" id="vadCheckbox"> Voice Detection (VAD)
-  </label>
-</div>
-<p id="status">Микрофон не активен</p>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="joinBtn" type="button">Join</button>
@@ -47,10 +40,13 @@
       <div id="status" style="margin-top:6px;color:#9bb0c6"></div>
     </div>
 
+    <!-- ВОТ ЭТА ПАНЕЛЬ НУЖНА ДЛЯ ЗВУКА -->
     <div class="card hidden" id="voicePanel">
       <div class="row">
-        <button id="pttBtn" type="button">Push‑to‑Talk (Space)</button>
-        <label><input id="vad" type="checkbox" /> Voice detection (VAD)</label>
+        <button id="pttBtn" type="button">🎙️ Push-to-Talk (Space)</button>
+        <label style="display:flex;align-items:center;gap:6px">
+          <input id="vad" type="checkbox" /> Voice detection (VAD)
+        </label>
       </div>
       <div style="margin-top:8px">
         <strong>Peers</strong>
@@ -59,7 +55,7 @@
     </div>
 
     <div class="card">
-      <strong>Chat</strong> <small class="muted">(AES‑GCM, ключ = Room Code)</small>
+      <strong>Chat</strong> <small class="muted">(AES-GCM, ключ = Room Code)</small>
       <div id="chat"></div>
       <div class="row" style="margin-top:8px">
         <input id="msg" placeholder="сообщение..." style="flex:1" />
@@ -68,15 +64,15 @@
     </div>
 
     <div class="card">
-      <small class="muted">Для доступа к микрофону страница должна быть загружена по HTTPS или с localhost. На GitHub Pages это выполняется автоматически.</small>
+      <small class="muted">Для микрофона нужен HTTPS (на Pages уже есть) или localhost.</small>
     </div>
   </div>
 
   <!-- WebRTC adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-  <!-- P2PT (включает SimplePeer) -->
+  <!-- P2PT (внутри SimplePeer) -->
   <script src="https://unpkg.com/p2pt/dist/p2pt.min.js"></script>
-  <!-- Ваш скрипт -->
+  <!-- Ваш код -->
   <script src="./script.js"></script>
 </body>
 </html>
