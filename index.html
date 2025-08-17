@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DedSec P2P Voice (no-server)</title>
+  <title>S!ndy</title>
   <style>
     :root { color-scheme: dark; }
     body{margin:0;background:#0b0f14;color:#e6eef5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -63,13 +63,17 @@
     </div>
 
     <div class="card">
-      <small class="muted">Для микрофона нужен HTTPS (на GitHub Pages уже есть) или localhost.</small>
+      <small class="muted">Для микрофона нужен HTTPS (Pages уже даёт) или localhost.</small>
     </div>
   </div>
 
-  <!-- WebRTC adapter (полезен для кроссбраузерной совместимости) -->
+  <!-- WebRTC adapter для кроссбраузерности -->
   <script defer src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-  <!-- Ваш код: он сам подтянет P2PT из CDN с фолбэками -->
+
+  <!-- ЛОКАЛЬНЫЙ p2pt (добавь файл p2pt.min.js в корень репо) -->
+  <script defer src="./p2pt.min.js"></script>
+
+  <!-- Твой код -->
   <script defer src="./script.js"></script>
 </body>
 </html>
