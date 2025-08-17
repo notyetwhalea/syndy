@@ -22,6 +22,10 @@ const vadCheckbox = document.getElementById('vad');
 const voicePanel = document.getElementById('voicePanel');
 
 // Глобальные переменные
+let localStream;
+let micActive = false;
+let vadRunning = false;
+let vadCtx, vadSrc, vadAnalyser, vadRAF;
 let roomCode = '';
 let nickname = '';
 let secretKey = null;
@@ -109,6 +113,25 @@ pttBtn.addEventListener('mousedown', ()=>setMicState(true));
 pttBtn.addEventListener('mouseup',   ()=>setMicState(false));
 document.addEventListener('keydown', (e)=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(true);} });
 document.addEventListener('keyup',   (e)=>{ if (e.code==='Space'){ e.preventDefault(); setMicState(false);} });
+
+const pttBtn = document.getElementById("pttBtn");
+pttBtn.addEventListener("mousedown", startMic);
+pttBtn.addEventListener("mouseup", stopMic);
+pttBtn.addEventListener("touchstart", startMic);
+pttBtn.addEventListener("touchend", stopMic);
+
+function startMic() {
+  if (localStream) {
+    localStream.getAudioTracks().forEach(track => track.enabled = true);
+    document.getElementById("status").textContent = "🎙️ Микрофон включен (PTT)";
+  }
+}
+function stopMic() {
+  if (localStream) {
+    localStream.getAudioTracks().forEach(track => track.enabled = false);
+    document.getElementById("status").textContent = "Микрофон выключен";
+  }
+}
 
 function startVAD() {
   if (!haveMic || !monitorStream) { vadCheckbox.checked=false; return; }
