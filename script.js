@@ -33,39 +33,6 @@ const peers = new Map();
 // ==== VAD ====
 let vadRunning = false, vadCtx = null, vadAnalyser = null, vadSrc = null, vadRAF = null;
 
-// ==== Надёжная загрузка P2PT из CDN ====
-async function ensureP2PT() {
-  if (window.P2PT) return;
-
-  function load(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('CDN load failed: ' + src));
-      document.head.appendChild(s);
-    });
-  }
-
-  const cdns = [
-    'https://unpkg.com/p2pt@1.0.7/dist/p2pt.min.js',
-    'https://cdn.jsdelivr.net/npm/p2pt@1.0.7/dist/p2pt.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/p2pt/1.0.7/p2pt.min.js'
-  ];
-
-  let lastErr;
-  for (const url of cdns) {
-    try {
-      await load(url);
-      if (window.P2PT) return;
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw (lastErr || new Error('P2PT could not be loaded from any CDN'));
-}
-
 // ==== UI helpers ====
 function addChat(line){
   if (!chatBox) return;
@@ -212,7 +179,7 @@ function topicFromRoom(code){
 
 function startP2P(){
   if (typeof window.P2PT !== 'function') {
-    setStatus('P2PT не загружен (CDN заблокирован?)');
+    setStatus('P2PT не загружен. Проверьте, что p2pt.min.js лежит рядом с index.html и доступен по HTTPS.');
     return;
   }
   if (p2pt) { try{ p2pt.destroy?.(); }catch{} p2pt = null; }
@@ -311,16 +278,12 @@ if (joinBtn) joinBtn.addEventListener('click', async () => {
     setStatus('Проверяю микрофон…');
     await tryGetMic();
 
-    // 3) P2PT
-    setStatus('Загружаю P2P-движок…');
-    await ensureP2PT();
-
-    // 4) старт discovery
+    // 3) старт discovery
     startP2P();
 
     voicePanel?.classList.remove('hidden');
     addChat(`You joined room ${roomCode} as ${nickname}`);
-    setStatus('P2P discovery запущен.');
+    // статус установится в startP2P
   } catch (e) {
     console.error(e);
     setStatus('Не удалось запустить P2P: ' + (e?.message || e));
@@ -342,4 +305,17 @@ if (leaveBtn) leaveBtn.addEventListener('click', () => {
 if (sendBtn) sendBtn.addEventListener('click', async () => {
   const text = (msgInput?.value || '').trim();
   if (!text) return;
-  try { await
+  try {
+    await sendChatToAll(text);
+    addChat(`Me: ${text}`);
+    msgInput.value = '';
+  } catch (e) {
+    console.error(e);
+    setStatus('Не удалось отправить сообщение.');
+  }
+});
+
+// ==== Подсказка по HTTPS ====
+if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  console.warn('getUserMedia доступен только в HTTPS или на localhost');
+}
